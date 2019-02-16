@@ -1,0 +1,20 @@
+matrix:
+- [0.8147236863931789, 0.9133758561390194, 0.2784982188670484, 0.9648885351992765]
+- [0.9057919370756192, 0.6323592462254095, 0.5468815192049838, 0.15761308167754828]
+- [0.12698681629350606, 0.09754040499940952, 0.9575068354342976, 0.9705927817606157]
+char: hello
+
+inputPat: '/mnt/input'
+outputPath: '/mnt/output'
+numCycles: 4
+row: 'BCD'
+col: [2,3,4]
+SaveFig: 1
+
+
+#inputPath = '/mnt/input' 
+#outputPath = '/mnt/output'
+#numCycles = 4 %Is this basically number of cycles? 2:cycle num
+#row = ['B':'C'] 
+#col = [2:3]
+#SaveFig = 1
