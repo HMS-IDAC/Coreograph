@@ -8,6 +8,7 @@ ip.addParamValue('outputFiles',true,@islogical);
 ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('modelPath','',@isstr);
 ip.addParamValue('outputPath','',@isstr);
+ip.addParamValue('outputChan',1,@(x)(all(x > 0)));  
 ip.parse(varargin{:});          
 p = ip.Results;  
 
@@ -57,11 +58,11 @@ estCoreRad= round(sqrt(medArea/pi));
 estCoreDiam = round(sqrt(maxArea/pi)*2*p.buffer);
 %% preprocessing                            
 fgFiltered=[];
-estCoreRad = [estCoreRad*0.7 estCoreRad*1.4];
+estCoreRad = [estCoreRad*0.6 estCoreRad*1.4];
 for iLog = 1:numel(estCoreRad)
     fgFiltered(:,:,iLog) = filterLoG(classProbs(:,:,2),estCoreRad(iLog));
 end
-maxImax = imhmax(sum(fgFiltered,3),0.000004);
+maxImax = imhmax(max(fgFiltered,[],3),0.00001);
 Imax = imregionalmax(maxImax);
 
 thr = thresholdOtsu(maxImax(Imax==1));
@@ -77,7 +78,7 @@ usf=round(1/dsFactor*2);
 centroids=cat(1,stats.Centroid).*usf;
 
 if  p.Docker==0
-    writePath = [pathName filesep 'dearray_'  fileName(1:end-8)];
+    writePath = [p.outputPath filesep fileName(1:end-8) filesep 'dearray'];
     mkdir(writePath)
     maskPath = [writePath filesep 'masks'];
     mkdir(maskPath)
@@ -90,9 +91,16 @@ end
 
 if p.outputFiles==1
     estCoreDiam = estCoreDiam*usf;
+    coreStack =cell(numCores);
+    initialmask = cell(numCores);
+    TMAmask=cell(numCores);
+    singleMaskTMA = zeros(size(imagesub));
+    maskTMA= zeros(size(imagesub));
+    bbox=cell(numCores);
+    masksub=cell(numCores);
     
     close all
-    for iCore = 1:numCores
+    parfor iCore = 1:numCores
         hold on
         text(stats(iCore).Centroid(1),stats(iCore).Centroid(2),num2str(iCore),'Color','g')
         % check if x and y coordinates exceed the image size
@@ -118,47 +126,38 @@ if p.outputFiles==1
             y(iCore)=1;
         end
         %
-        
-        %% write cropped tiff stacks with all channels for further segmentation. Takes a LONG time depending write speeds
+        bbox{iCore} = [round(x(iCore)) round(y(iCore)) round(xLim(iCore)) round(yLim(iCore))];
+        %% write cropped tiff stacks with optional subset of channels for feeding into UNet
         if p.writeTiff==1
-            coreStack =[];
-            for iChan = 1:numChan
-                  coreStack = cat(3,coreStack,bfGetPlane(I,iChan,round(x(iCore)),round(y(iCore)), round(xLim(iCore)-x(iCore)),round(yLim(iCore)-y(iCore))));
+            for iChan = p.outputChan
+                coreStack{iCore} = imread([pathName filesep fileName],iChan,'PixelRegion',{[bbox{iCore}(2),bbox{iCore}(4)-1], [bbox{iCore}(1),bbox{iCore}(3)-1]});
             end
-            tiffwriteimj(coreStack,[writePath filesep int2str(iCore) '.tif'])
+            tiffwriteimj(coreStack{iCore},[writePath filesep int2str(iCore) '.tif'])
         end
     
-    end
-    %% segment each core and save mask files. Parallelized to increase speed.
-    if p.writeMasks==1
-        for iCore = 1:numCores
-
-            I =bfGetReader([pathName filesep fileName]);
-            core{iCore} = bfGetPlane(I,1,round(x(iCore)),round(y(iCore)), round(xLim(iCore)-x(iCore)),round(yLim(iCore)-y(iCore)));
+    %% segment each core and save mask files
+        if p.writeMasks==1
             initialmask{iCore} = imresize(imcrop(classProbs(:,:,2),[round(x(iCore)),round(y(iCore)), ...
-                round(xLim(iCore)-x(iCore)),round(yLim(iCore)-y(iCore))]/usf),size(core{iCore}));
-            disp (['Cropping core ' num2str(iCore)])
+                round(xLim(iCore)-x(iCore)),round(yLim(iCore)-y(iCore))]/usf),size(coreStack{iCore}));
+            TMAmask{iCore} = coreSegmenterFigOutput(coreStack{iCore},'initialmask',initialmask{iCore},'activeContours','true','split','true');
+            masksub{iCore} = imresize(imresize(TMAmask{iCore},size(coreStack{iCore})),dsFactor/2);
+            tiffwriteimj(uint8(TMAmask{iCore}),[maskPath filesep int2str(iCore) '_mask.tif']);
+            disp (['Segmented core ' num2str(iCore)])
+
         end
-        
-        parfor iCore = 1:numCores
-             TMAmask{iCore} = coreSegmenterFigOutput(core{iCore},'initialmask',initialmask{iCore},'activeContours','true','split','true');
-             masksub{iCore} = imresize(imresize(TMAmask{iCore},size(core{iCore})),dsFactor/2);
-             tiffwriteimj(uint8(TMAmask{iCore}),[maskPath filesep int2str(iCore) '_mask.tif']);
-             disp (['Segmented core ' num2str(iCore)])
-        end
-        singleMaskTMA = zeros(size(imagesub));
-        maskTMA= zeros(size(imagesub));
-        for iCore = 1:numCores
-            singleMaskTMA(round(y(iCore)*dsFactor/2)+1:round(y(iCore)*dsFactor/2)+size(masksub{iCore},1),...
-                round(x(iCore)*dsFactor/2)+1:round(x(iCore)*dsFactor/2)+size(masksub{iCore},2))=edge(masksub{iCore}>0);
-            maskTMA = maskTMA + imresize(singleMaskTMA,size(maskTMA),'nearest');
-        end
-        imagesub= imfuse(maskTMA>0,sqrt(double(imagesub)./max(double(imagesub(:)))));
-    else
-        imagesub = sqrt(double(imagesub)./max(double(imagesub(:))));
     end
     
-    %% add centroid positions and labels to a summary image      
+    %% build mask outlines
+    for iCore= 1:numCores
+        singleMaskTMA(round(y(iCore)*dsFactor/2)+1:round(y(iCore)*dsFactor/2)+size(masksub{iCore},1),...
+            round(x(iCore)*dsFactor/2)+1:round(x(iCore)*dsFactor/2)+size(masksub{iCore},2))=edge(masksub{iCore}>0);
+        maskTMA = maskTMA + imresize(singleMaskTMA,size(maskTMA),'nearest');
+        rect=bbox{iCore};
+        save([writePath filesep int2str(iCore) '_cropCoords.mat'],'rect')
+    end
+    imagesub= imfuse(maskTMA>0,sqrt(double(imagesub)./max(double(imagesub(:)))));
+    
+    %% add centroid positions and labels to a summary image
     imshow(imagesub,[])
     for iCore = 1:numCores
         hold on

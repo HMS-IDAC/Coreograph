@@ -7,6 +7,7 @@ ip.addParamValue('writeMasks',true,@islogical);
 ip.addParamValue('outputFiles',true,@islogical);
 ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('DockerParams',0,@isstruct);
+ip.addParamValue('outputChan',1,@(x)(all(x > 0)));   
 ip.parse(varargin{:});          
 p = ip.Results;  
 
@@ -20,7 +21,7 @@ else
         parentFolder =uigetdir;
     end
     modelPath ='';
-    outputPath = '';
+    outputPath = parentFolder;
         
 end
 
@@ -39,14 +40,14 @@ disp(['Found ' num2str(numel(finalFolderList)) ' folders(s)' ])
 
 for iFolder = 1:numel(finalFolderList)
         pathName = finalFolderList(iFolder);
-        fileListing = dir([parentFolder filesep char(pathName) filesep '*.ome.tif']);
-        disp(['Found ' num2str(numel(fileListing)) ' file(s) in folder ' num2str(iFolder)])
+        fileListing = dir([parentFolder filesep char(pathName) filesep 'registration' filesep '*.ome.tif']);
+        disp(['Found ' num2str(numel(fileListing)) ' file(s) in folder ' num2str(iFolder) ' of ' int2str(numel(finalFolderList))])
 
         if ~isempty(fileListing)
             for iFile = 1:numel(fileListing)
                 disp(['Processing file ' num2str(iFile) ' of ' num2str(numel(fileListing))])
-                tmaDearray([parentFolder filesep char(pathName) filesep fileListing(iFile).name],'buffer',p.buffer,'writeTiff',p.writeTiff,...
-                    'writeMasks',p.writeMasks,'outputFiles',p.outputFiles,'modelPath', modelPath,'outputPath',outputPath,'Docker',p.Docker);
+                tmaDearray([parentFolder filesep char(pathName) filesep 'registration' filesep fileListing(iFile).name],'buffer',p.buffer,'writeTiff',p.writeTiff,...
+                    'writeMasks',p.writeMasks,'outputFiles',p.outputFiles,'modelPath', modelPath,'outputPath',outputPath,'outputChan',p.outputChan,'Docker',p.Docker);
             end
         end
 end
