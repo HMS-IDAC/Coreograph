@@ -1,10 +1,10 @@
 function tmaDearray(fileName,varargin)
-tic
 ip = inputParser;
 ip.addParamValue('buffer',1.5,@(x)(numel(x) == 1 & all(x > 0 )));  
 ip.addParamValue('writeTiff',true,@islogical);
 ip.addParamValue('writeMasks',true,@islogical);
 ip.addParamValue('outputFiles',true,@islogical);
+ip.addParamValue('sample','TMA',@(x)(ismember(x,{'TMA','tissue'})));
 ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('modelPath','',@isstr);
 ip.addParamValue('outputPath','',@isstr);
@@ -34,51 +34,77 @@ modelPath = [p.modelPath 'RFmodel.mat'];
 %#function treeBagger
 load(modelPath)
 
-I =bfGetReader([pathName filesep fileName]);
-numChan =I.getImageCount;
-sizeX = I.getSizeX;
-sizeY = I.getSizeY;
-DAPI = imread([pathName filesep fileName],numChan+1); %obtain the 2nd largest resolution of the 1st channel (assumed to be DAPI)
-
+if contains(fileName,'ome.tif')
+    I =bfGetReader([pathName filesep fileName]);
+    numChan =I.getImageCount;
+    sizeX = I.getSizeX;
+    sizeY = I.getSizeY;
+    DAPI = imread([pathName filesep fileName],numChan+1); %obtain the 2nd largest resolution of the 1st channel (assumed to be DAPI)
+else
+    DAPI = imread([pathName filesep fileName],p.outputChan); 
+    sizeX = size(DAPI,2);
+    sizeY = size(DAPI,1);
+    DAPI = imresize(DAPI,0.5);
+end
+    
 %% resize
 dsFactor = 1/(2^4);%take the 2nd pyramid (for speed) and scale it down by 1/16 or 2^4. Effectively 1/32.
 imagesub = imresize(DAPI,dsFactor);
-F = pcImageFeatures(double(imagesub)/65535,model.sigmas,model.offsets,model.osSigma,model.radii,...
-                                model.cfSigma,model.logSigmas,model.sfSigmas,model.ridgeSigmas,model.ridgenangs,...
-                                model.edgeSigmas,model.edgenangs,model.nhoodEntropy,model.nhoodStd);
-                            [imL,classProbs] = imClassify(F,model.treeBag,100);
-
-%% get initial estimates of area and radius
-preMask = imfill(imgaussfilt3(classProbs(:,:,2),1.2)>0.85,'holes');
-stats=regionprops(preMask);
-medArea=prctile(cat(1,stats.Area),50);
-maxArea = prctile(cat(1,stats.Area),99);
-minArea = prctile(cat(1,stats.Area),2);
-estCoreRad= round(sqrt(medArea/pi)); 
-estCoreDiam = round(sqrt(maxArea/pi)*2*p.buffer);
-%% preprocessing                            
-fgFiltered=[];
-estCoreRad = [estCoreRad*0.6 estCoreRad*1.4];
-for iLog = 1:numel(estCoreRad)
-    fgFiltered(:,:,iLog) = filterLoG(classProbs(:,:,2),estCoreRad(iLog));
-end
-maxImax = imhmax(max(fgFiltered,[],3),0.00001);
-Imax = imregionalmax(maxImax);
-
-thr = thresholdOtsu(maxImax(Imax==1));
-Imax = imclearborder((maxImax>thr).*Imax);
-imshowpair(Imax,imagesub)
-centerLabel =bwlabel(Imax);
-stats=regionprops(centerLabel);
-numCores= numel(stats);
-toc
-
-%% write tiff stacks
 usf=round(1/dsFactor*2);
-centroids=cat(1,stats.Centroid).*usf;
 
+if isequal(p.sample,'TMA')
+    F = pcImageFeatures(double(imagesub)/65535,model.sigmas,model.offsets,model.osSigma,model.radii,...
+                                    model.cfSigma,model.logSigmas,model.sfSigmas,model.ridgeSigmas,model.ridgenangs,...
+                                    model.edgeSigmas,model.edgenangs,model.nhoodEntropy,model.nhoodStd);
+                                [imL,classProbs] = imClassify(F,model.treeBag,100);
+
+    %% get initial estimates of area and radius
+    preMask = imfill(imgaussfilt3(classProbs(:,:,2),1.2)>0.85,'holes');
+    stats=regionprops(preMask);
+    medArea=prctile(cat(1,stats.Area),50);
+    maxArea = prctile(cat(1,stats.Area),99);
+    minArea = prctile(cat(1,stats.Area),2);
+    estCoreRad= round(sqrt(medArea/pi)); 
+    estCoreDiam = round(sqrt(maxArea/pi)*2*p.buffer);
+    %% preprocessing                            
+    fgFiltered=[];
+    estCoreRad = [estCoreRad*0.6 estCoreRad*1.4];
+    for iLog = 1:numel(estCoreRad)
+        fgFiltered(:,:,iLog) = filterLoG(classProbs(:,:,2),estCoreRad(iLog));
+    end
+    maxImax = imhmax(max(fgFiltered,[],3),0.00001);
+    Imax = imregionalmax(maxImax);
+
+    thr = thresholdOtsu(maxImax(Imax==1));
+    Imax = imclearborder((maxImax>thr).*Imax);
+    imshowpair(Imax,imagesub)
+    centerLabel =bwlabel(Imax);
+    stats=regionprops(centerLabel);
+    numCores= numel(stats);
+        
+    centroids=cat(1,stats.Centroid).*usf;
+    estCoreDiamX = num2cell(ones(numCores).*(estCoreDiam*usf));
+    estCoreDiamY = num2cell(ones(numCores).*(estCoreDiam*usf));
+    
+else
+    preFilt = imgaussfilt3(imagesub,2);
+    mask = preFilt> thresholdMinimumError(preFilt,'model','poisson');
+    mask = imfill(bwareaopen(imclose(mask,strel('square',15)),10000),'holes');
+    stats=regionprops(mask);
+    numCores= numel(stats);
+    
+    for iCore = 1:numCores
+        estCoreDiamX{iCore} = stats(iCore).BoundingBox(3)*usf*p.buffer;
+        estCoreDiamY{iCore} = stats(iCore).BoundingBox(4)*usf*p.buffer;
+    end
+    centroids=cat(1,stats.Centroid).*usf;
+    classProbs=repmat(mask,[1 1 3]);
+end
+    
+%% write tiff stacks
 if  p.Docker==0
-    writePath = [p.outputPath filesep fileName(1:end-8) filesep 'dearray'];
+    filePrefix = fileName(1:strfind(fileName,'.')-1);
+    writePath = [p.outputPath filesep filePrefix filesep 'dearray'];
     mkdir(writePath)
     maskPath = [writePath filesep 'masks'];
     mkdir(maskPath)
@@ -90,7 +116,7 @@ end
 
 
 if p.outputFiles==1
-    estCoreDiam = estCoreDiam*usf;
+    
     coreStack =cell(numCores);
     initialmask = cell(numCores);
     TMAmask=cell(numCores);
@@ -100,12 +126,12 @@ if p.outputFiles==1
     masksub=cell(numCores);
     
     close all
-    parfor iCore = 1:numCores
+   parfor iCore = 1:numCores
         hold on
         text(stats(iCore).Centroid(1),stats(iCore).Centroid(2),num2str(iCore),'Color','g')
         % check if x and y coordinates exceed the image size
-        x(iCore)=centroids(iCore,1)-estCoreDiam/2;
-        xLim(iCore)  = x(iCore)+estCoreDiam;
+        x(iCore)=centroids(iCore,1)-estCoreDiamX{iCore}/2;
+        xLim(iCore)  = x(iCore)+estCoreDiamX{iCore};
 
         if xLim(iCore) > sizeX
             xLim(iCore) = sizeX;
@@ -115,8 +141,8 @@ if p.outputFiles==1
             x(iCore)=1;
         end
 
-        y(iCore)=centroids(iCore,2)-estCoreDiam/2;
-        yLim(iCore) = y(iCore)+estCoreDiam;
+        y(iCore)=centroids(iCore,2)-estCoreDiamY{iCore}/2;
+        yLim(iCore) = y(iCore)+estCoreDiamY{iCore};
 
         if yLim(iCore)>sizeY
             yLim(iCore) = sizeY;
@@ -139,8 +165,12 @@ if p.outputFiles==1
         if p.writeMasks==1
             initialmask{iCore} = imresize(imcrop(classProbs(:,:,2),[round(x(iCore)),round(y(iCore)), ...
                 round(xLim(iCore)-x(iCore)),round(yLim(iCore)-y(iCore))]/usf),size(coreStack{iCore}));
-            TMAmask{iCore} = coreSegmenterFigOutput(coreStack{iCore},'initialmask',initialmask{iCore},'activeContours','true','split','true');
-            masksub{iCore} = imresize(imresize(TMAmask{iCore},size(coreStack{iCore})),dsFactor/2);
+            if isequal(p.sample,'TMA')
+                TMAmask{iCore} = coreSegmenterFigOutput(coreStack{iCore},'initialmask',initialmask{iCore},'activeContours','false','split','true');
+            else
+                TMAmask{iCore} = findCentralObject(initialmask{iCore});
+            end
+            masksub{iCore} = imresize(imresize(TMAmask{iCore},size(coreStack{iCore}),'nearest'),dsFactor/2,'nearest');
             tiffwriteimj(uint8(TMAmask{iCore}),[maskPath filesep int2str(iCore) '_mask.tif']);
             disp (['Segmented core ' num2str(iCore)])
 

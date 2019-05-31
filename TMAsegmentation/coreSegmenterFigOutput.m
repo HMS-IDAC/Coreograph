@@ -16,8 +16,8 @@ stats=regionprops(nuclearMask,'Area','Solidity','Eccentricity');
 
 if (stats(I).Solidity<0.9 || stats(I).Area/size(nuclearMask,1)/size(nuclearMask,2) <0.2) || isequal(p.activeContours,'true')
     if isempty(p.initialmask)
-        initialmask = zeros(size(nucGF));
-        initialmask(buffer:end-buffer,buffer:end-buffer) = 1;
+        p.initialmask = zeros(size(nucGF));
+        p.initialmask(buffer:end-buffer,buffer:end-buffer) = 1;
     end
     nuclearMask = activecontour(nucGF,imresize(p.initialmask,size(nucGF))>0.6,300,'Chan-Vese','SmoothFactor',2);
     stats=regionprops(nuclearMask,'Area','Solidity','Eccentricity');

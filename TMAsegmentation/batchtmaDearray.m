@@ -5,6 +5,7 @@ ip.addParamValue('buffer',1.5,@(x)(numel(x) == 1 & all(x > 0 )));
 ip.addParamValue('writeTiff',true,@islogical);
 ip.addParamValue('writeMasks',true,@islogical);
 ip.addParamValue('outputFiles',true,@islogical);
+ip.addParamValue('sample','TMA',@(x)(ismember(x,{'TMA','tissue'})));
 ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('DockerParams',0,@isstruct);
 ip.addParamValue('outputChan',1,@(x)(all(x > 0)));   
@@ -40,14 +41,25 @@ disp(['Found ' num2str(numel(finalFolderList)) ' folders(s)' ])
 
 for iFolder = 1:numel(finalFolderList)
         pathName = finalFolderList(iFolder);
-        fileListing = dir([parentFolder filesep char(pathName) filesep 'registration' filesep '*.ome.tif']);
-        disp(['Found ' num2str(numel(fileListing)) ' file(s) in folder ' num2str(iFolder) ' of ' int2str(numel(finalFolderList))])
+        finalFileList = [];
+        fileListing = dir([parentFolder filesep char(pathName) filesep 'registration' filesep '*.*']);
+        for iFile = 1:numel(fileListing)
+            if ~isequal(fileListing(iFile).name,'.') && ~isequal(fileListing(iFile).name,'..')
+                finalFileList{end+1} = fileListing(iFile).name;
+            end
+        end
+        
+        
+        disp(['Found ' num2str(numel(finalFileList)) ' file(s) in folder ' num2str(iFolder) ' of ' int2str(numel(finalFolderList))])
 
-        if ~isempty(fileListing)
-            for iFile = 1:numel(fileListing)
-                disp(['Processing file ' num2str(iFile) ' of ' num2str(numel(fileListing))])
-                tmaDearray([parentFolder filesep char(pathName) filesep 'registration' filesep fileListing(iFile).name],'buffer',p.buffer,'writeTiff',p.writeTiff,...
-                    'writeMasks',p.writeMasks,'outputFiles',p.outputFiles,'modelPath', modelPath,'outputPath',outputPath,'outputChan',p.outputChan,'Docker',p.Docker);
+        if ~isempty(finalFileList)
+            for iFile = 1:numel(finalFileList)
+                disp(['Processing file ' num2str(iFile) ' of ' num2str(numel(finalFileList))])
+               
+                    tmaDearray([parentFolder filesep char(pathName) filesep 'registration' filesep finalFileList{iFile}],'buffer',p.buffer,...
+                        'writeTiff',p.writeTiff,'writeMasks',p.writeMasks,'outputFiles',p.outputFiles,'modelPath', modelPath,...
+                        'outputPath',outputPath,'outputChan',p.outputChan,'Docker',p.Docker,'sample',p.sample);
+               
             end
         end
 end
