@@ -137,7 +137,7 @@ if p.outputFiles==1
             xLim(iCore) = sizeX;
         end
         if x(iCore)<1 
-            xLim(iCore) = xLim(iCore) -x(iCore);
+%             xLim(iCore) = xLim(iCore) -x(iCore);
             x(iCore)=1;
         end
 
@@ -148,7 +148,7 @@ if p.outputFiles==1
             yLim(iCore) = sizeY;
         end
         if y(iCore)<1 
-            yLim(iCore) = yLim(iCore) - y(iCore);
+%             yLim(iCore) = yLim(iCore) - y(iCore);
             y(iCore)=1;
         end
         %
