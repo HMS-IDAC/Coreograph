@@ -1,9 +1,11 @@
 function tmaDearray(fileName,varargin)
 ip = inputParser;
 ip.addParamValue('buffer',1.5,@(x)(numel(x) == 1 & all(x > 0 )));  
-ip.addParamValue('writeTiff',true,@islogical);
-ip.addParamValue('writeMasks',true,@islogical);
-ip.addParamValue('outputFiles',true,@islogical);
+ip.addParamValue('downsampleFactor',4,@(x)(numel(x) == 1 & all(x > 0 )));  
+ip.addParamValue('writeTiff','true',@(x)(ismember(x,{'true','false'})));
+ip.addParamValue('writeMasks','true',@(x)(ismember(x,{'true','false'})));
+ip.addParamValue('outputFiles','true',@(x)(ismember(x,{'true','false'})));
+ip.addParamValue('outputCenters','false',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('sample','TMA',@(x)(ismember(x,{'TMA','tissue'})));
 ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('modelPath','',@isstr);
@@ -25,7 +27,9 @@ if (fileName == 0)
     error('You must select an image file to continue!')
 end
 
-
+if ischar(p.downsampleFactor)
+    p.downsampleFactor=str2num(p.downsampleFactor);
+end
 
 %% read input data
 
@@ -48,7 +52,7 @@ else
 end
     
 %% resize
-dsFactor = 1/(2^4);%take the 2nd pyramid (for speed) and scale it down by 1/16 or 2^4. Effectively 1/32.
+dsFactor = 1/(2^p.downsampleFactor);%take the 2nd pyramid (for speed) and scale it down by 1/16 or 2^4. Effectively 1/32.
 imagesub = imresize(DAPI,dsFactor);
 usf=round(1/dsFactor*2);
 
@@ -114,8 +118,11 @@ else
     mkdir(maskPath)
 end
 
+if isequal(p.outputCenters ,'true')
+    tiffwriteimj(uint8(imresize(Imax,[size(Y) size(X)],'nearest')),[writePath filesep 'centers.tif'])
+end
 
-if p.outputFiles==1
+if isequal(p.outputFiles,'true')
     
     coreStack =cell(numCores);
     initialmask = cell(numCores);
@@ -154,7 +161,7 @@ if p.outputFiles==1
         %
         bbox{iCore} = [round(x(iCore)) round(y(iCore)) round(xLim(iCore)) round(yLim(iCore))];
         %% write cropped tiff stacks with optional subset of channels for feeding into UNet
-        if p.writeTiff==1
+        if isequal(p.writeTiff,'true')
             for iChan = p.outputChan
                 coreStack{iCore} = imread([pathName filesep fileName],iChan,'PixelRegion',{[bbox{iCore}(2),bbox{iCore}(4)-1], [bbox{iCore}(1),bbox{iCore}(3)-1]});
             end
@@ -162,7 +169,7 @@ if p.outputFiles==1
         end
     
     %% segment each core and save mask files
-        if p.writeMasks==1
+        if isequal(p.writeMasks,'true')
             initialmask{iCore} = imresize(imcrop(classProbs(:,:,2),[round(x(iCore)),round(y(iCore)), ...
                 round(xLim(iCore)-x(iCore)),round(yLim(iCore)-y(iCore))]/usf),size(coreStack{iCore}));
             if isequal(p.sample,'TMA')

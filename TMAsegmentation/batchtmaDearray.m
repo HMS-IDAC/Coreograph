@@ -2,9 +2,10 @@ function batchtmaDearray(parentFolder,varargin)
 
 ip = inputParser;
 ip.addParamValue('buffer',1.5,@(x)(numel(x) == 1 & all(x > 0 )));  
-ip.addParamValue('writeTiff',true,@islogical);
-ip.addParamValue('writeMasks',true,@islogical);
-ip.addParamValue('outputFiles',true,@islogical);
+ip.addParamValue('writeTiff','true',@(x)(ismember(x,{'true','false'})));
+ip.addParamValue('writeMasks','true',@(x)(ismember(x,{'true','false'})));
+ip.addParamValue('outputFiles','true',@(x)(ismember(x,{'true','false'})));
+ip.addParamValue('outputCenters','false',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('sample','TMA',@(x)(ismember(x,{'TMA','tissue'})));
 ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('DockerParams',0,@isstruct);
@@ -39,7 +40,7 @@ for iFolder = 1:numel(folders)
 end
 disp(['Found ' num2str(numel(finalFolderList)) ' folders(s)' ])
 
-for iFolder = 2:2%numel(finalFolderList)
+for iFolder = 1:numel(finalFolderList)
         pathName = finalFolderList(iFolder);
         finalFileList = [];
         fileListing = dir([parentFolder filesep char(pathName) filesep 'registration' filesep '*.*']);
