@@ -119,7 +119,7 @@ else
 end
 
 if isequal(p.outputCenters ,'true')
-    tiffwriteimj(uint8(imresize(Imax,[size(Y) size(X)],'nearest')),[writePath filesep 'centers.tif'])
+    tiffwriteimj(uint8(imresize(Imax,[sizeY sizeX],'nearest')),[writePath filesep 'centers.tif'])
 end
 
 if isequal(p.outputFiles,'true')
