@@ -9,7 +9,7 @@ showPlots=ip.Results.showPlots;
 centroids = centroids.*(1/32);
 
 numCores=numel(centroids(:,1));
-estCoreDiam = 75;
+% estCoreDiam = 75;
 
 %%plots the initial centroid positions on a black background
 before = subplot(1,2,1);
@@ -175,8 +175,8 @@ while size(grids,2) > 1
         secondaryIndex=1;
     end
     
-    numInMain = sum(main~=0);
-    numInSecondary = sum(secondary~=0);
+    numInMain = sum(sum(main~=0));
+    numInSecondary = sum(sum(secondary~=0));
     mainCores = main(main~=0);
     
     %Calculates the average coordinate of the cores to find relative
