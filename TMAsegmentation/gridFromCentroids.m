@@ -1,4 +1,4 @@
-function [finalGrid] = gridFromCentroids(centroids, estCoreDiam, varargin)
+function [finalGrid] = gridFromCentroids(centroids, estCoreDiam, downsamplingFactor, varargin)
 
 ip=inputParser;
 ip.addRequired('centroids',@isnumeric);
@@ -6,7 +6,7 @@ ip.addOptional('showPlots',0,@isnumeric)
 ip.parse(centroids,varargin{:});
 showPlots=ip.Results.showPlots;
 
-centroids = centroids.*(1/32);
+centroids = centroids.*(1/downsamplingFactor);
 
 numCores=numel(centroids(:,1));
 % estCoreDiam = 75;

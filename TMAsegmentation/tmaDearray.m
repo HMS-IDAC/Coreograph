@@ -99,7 +99,7 @@ if isequal(p.sample,'TMA')
     estCoreDiamX = num2cell(ones(numCores).*(estCoreDiam*usf));
     estCoreDiamY = num2cell(ones(numCores).*(estCoreDiam*usf));
     
-    tmaGrid = gridFromCentroids(centroids,estCoreDiam,'showPlots',0);
+    tmaGrid = gridFromCentroids(centroids,estCoreDiam,usf,'showPlots',1);
 else
     preFilt = imgaussfilt3(imagesub,2);
     mask = preFilt> thresholdMinimumError(preFilt,'model','poisson');
