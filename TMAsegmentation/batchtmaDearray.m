@@ -6,6 +6,7 @@ ip.addParamValue('writeTiff','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('writeMasks','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('outputFiles','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('outputCenters','false',@(x)(ismember(x,{'true','false'})));
+ip.addParamValue('useGrid','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('sample','TMA',@(x)(ismember(x,{'TMA','tissue'})));
 ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('DockerParams',0,@isstruct);
@@ -55,11 +56,11 @@ for iFolder = 1:numel(finalFolderList)
 
         if ~isempty(finalFileList)
             for iFile = 1:numel(finalFileList)
-                disp(['Processing file ' num2str(iFile) ' of ' num2str(numel(finalFileList))])
+                disp(['Processing filename ' finalFileList{iFile} ' - file ' num2str(iFile) ' of ' num2str(numel(finalFileList))])
                
                     tmaDearray([parentFolder filesep char(pathName) filesep 'registration' filesep finalFileList{iFile}],'buffer',p.buffer,...
                         'writeTiff',p.writeTiff,'writeMasks',p.writeMasks,'outputFiles',p.outputFiles,'modelPath', modelPath,...
-                        'outputPath',outputPath,'outputChan',p.outputChan,'Docker',p.Docker,'sample',p.sample);
+                        'outputPath',outputPath,'outputChan',p.outputChan,'useGrid',p.useGrid,'Docker',p.Docker,'sample',p.sample);
                
             end
         end

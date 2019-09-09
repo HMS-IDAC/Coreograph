@@ -1,4 +1,12 @@
 function tmaDearray(fileName,varargin)
+%this function splits an .ome.tif Tissue MicroArray into individual cores
+%using a trained random forest model to find the centers of each core. Each
+%core is then masked through active contours. Masks and tiff files for each
+%core are exported in parallel.
+%Setting useGrid to true will deploy David's gridFromCentroids.m routine to
+%assign an intuitive grid label to each core instead of a running number.
+% Clarence Yapp & David Tallman 09/2019
+
 ip = inputParser;
 ip.addParamValue('buffer',1.5,@(x)(numel(x) == 1 & all(x > 0 )));  
 ip.addParamValue('downsampleFactor',4,@(x)(numel(x) == 1 & all(x > 0 )));  
@@ -6,6 +14,7 @@ ip.addParamValue('writeTiff','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('writeMasks','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('outputFiles','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('outputCenters','false',@(x)(ismember(x,{'true','false'})));
+ip.addParamValue('useGrid','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('sample','TMA',@(x)(ismember(x,{'TMA','tissue'})));
 ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('modelPath','',@isstr);
@@ -18,8 +27,8 @@ if nargin < 1
     fileName = [];
     [fileName, pathName] = uigetfile('*.ome.tif');
 else
-    [pathName,name,ext] = fileparts(fileName);
-    fileName = [name ext ];
+    [pathName,gridCoord,ext] = fileparts(fileName);
+    fileName = [gridCoord ext ];
 end
 
 
@@ -90,6 +99,7 @@ if isequal(p.sample,'TMA')
     estCoreDiamX = num2cell(ones(numCores).*(estCoreDiam*usf));
     estCoreDiamY = num2cell(ones(numCores).*(estCoreDiam*usf));
     
+    tmaGrid = gridFromCentroids(centroids,estCoreDiam,'showPlots',1);
 else
     preFilt = imgaussfilt3(imagesub,2);
     mask = preFilt> thresholdMinimumError(preFilt,'model','poisson');
@@ -131,11 +141,19 @@ if isequal(p.outputFiles,'true')
     maskTMA= zeros(size(imagesub));
     bbox=cell(numCores);
     masksub=cell(numCores);
-    
+    Alphabet = 'A':'Z';
     close all
+    
    parfor iCore = 1:numCores
         hold on
-        text(stats(iCore).Centroid(1),stats(iCore).Centroid(2),num2str(iCore),'Color','g')
+        [row,col] = find(tmaGrid == iCore);
+        if strcmp(p.useGrid,'true')
+            gridCoord = [Alphabet(row) num2str(col)];
+        else 
+            gridCoord = int2str(iCore);
+        end
+        text(stats(iCore).Centroid(1),stats(iCore).Centroid(2),gridCoord,'Color','g')
+        
         % check if x and y coordinates exceed the image size
         x(iCore)=centroids(iCore,1)-estCoreDiamX{iCore}/2;
         xLim(iCore)  = x(iCore)+estCoreDiamX{iCore};
@@ -165,7 +183,7 @@ if isequal(p.outputFiles,'true')
             for iChan = p.outputChan
                 coreStack{iCore} = imread([pathName filesep fileName],iChan,'PixelRegion',{[bbox{iCore}(2),bbox{iCore}(4)-1], [bbox{iCore}(1),bbox{iCore}(3)-1]});
             end
-            tiffwriteimj(coreStack{iCore},[writePath filesep int2str(iCore) '.tif'])
+            tiffwriteimj(coreStack{iCore},[writePath filesep gridCoord '.tif'])
         end
     
     %% segment each core and save mask files
@@ -178,19 +196,26 @@ if isequal(p.outputFiles,'true')
                 TMAmask{iCore} = findCentralObject(initialmask{iCore});
             end
             masksub{iCore} = imresize(imresize(TMAmask{iCore},size(coreStack{iCore}),'nearest'),dsFactor/2,'nearest');
-            tiffwriteimj(uint8(TMAmask{iCore}),[maskPath filesep int2str(iCore) '_mask.tif']);
-            disp (['Segmented core ' num2str(iCore)])
+            tiffwriteimj(uint8(TMAmask{iCore}),[maskPath filesep gridCoord '_mask.tif']);
+            disp (['Segmented core ' gridCoord])
 
         end
     end
     
     %% build mask outlines
     for iCore= 1:numCores
+        [row,col] = find(tmaGrid == iCore);
+        if  strcmp(p.useGrid,'true')
+            gridCoord = [Alphabet(row) num2str(col)];
+        else 
+            gridCoord = int2str(iCore);
+        end
+        
         singleMaskTMA(round(y(iCore)*dsFactor/2)+1:round(y(iCore)*dsFactor/2)+size(masksub{iCore},1),...
             round(x(iCore)*dsFactor/2)+1:round(x(iCore)*dsFactor/2)+size(masksub{iCore},2))=edge(masksub{iCore}>0);
         maskTMA = maskTMA + imresize(singleMaskTMA,size(maskTMA),'nearest');
         rect=bbox{iCore};
-        save([writePath filesep int2str(iCore) '_cropCoords.mat'],'rect')
+        save([writePath filesep gridCoord '_cropCoords.mat'],'rect')
     end
     imagesub= imfuse(maskTMA>0,sqrt(double(imagesub)./max(double(imagesub(:)))));
     
@@ -198,7 +223,13 @@ if isequal(p.outputFiles,'true')
     imshow(imagesub,[])
     for iCore = 1:numCores
         hold on
-        text(stats(iCore).Centroid(1),stats(iCore).Centroid(2),num2str(iCore),'Color','g')
+        [row,col] = find(tmaGrid == iCore);
+        if  strcmp(p.useGrid,'true')
+            gridCoord = [Alphabet(row) num2str(col)];
+        else 
+            gridCoord = int2str(iCore);
+        end
+        text(stats(iCore).Centroid(1),stats(iCore).Centroid(2),gridCoord,'Color','g')
     end
     saveas (gcf,[writePath filesep 'TMA_MAP.tif'])
 end
