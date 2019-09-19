@@ -1,7 +1,8 @@
 function batchtmaDearray(parentFolder,varargin)
 
 ip = inputParser;
-ip.addParamValue('buffer',1.5,@(x)(numel(x) == 1 & all(x > 0 )));  
+ip.addParamValue('buffer',1.2,@(x)(numel(x) == 1 & all(x > 0 )));  
+ip.addParamValue('downSampleFactor',4,@(x)(numel(x) == 1 & all(x > 0 )));  
 ip.addParamValue('writeTiff','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('writeMasks','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('outputFiles','true',@(x)(ismember(x,{'true','false'})));
@@ -60,7 +61,7 @@ for iFolder = 1:numel(finalFolderList)
                
                     tmaDearray([parentFolder filesep char(pathName) filesep 'registration' filesep finalFileList{iFile}],'buffer',p.buffer,...
                         'writeTiff',p.writeTiff,'writeMasks',p.writeMasks,'outputFiles',p.outputFiles,'modelPath', modelPath,...
-                        'outputPath',outputPath,'outputChan',p.outputChan,'useGrid',p.useGrid,'Docker',p.Docker,'sample',p.sample);
+                        'outputPath',outputPath,'outputChan',p.outputChan,'useGrid',p.useGrid,'Docker',p.Docker,'sample',p.sample,'downSampleFactor',p.downSampleFactor);
                
             end
         end

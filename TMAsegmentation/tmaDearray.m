@@ -8,7 +8,7 @@ function tmaDearray(fileName,varargin)
 % Clarence Yapp & David Tallman 09/2019
 
 ip = inputParser;
-ip.addParamValue('buffer',1.5,@(x)(numel(x) == 1 & all(x > 0 )));  
+ip.addParamValue('buffer',1.2,@(x)(numel(x) == 1 & all(x > 0 )));  
 ip.addParamValue('downsampleFactor',4,@(x)(numel(x) == 1 & all(x > 0 )));  
 ip.addParamValue('writeTiff','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('writeMasks','true',@(x)(ismember(x,{'true','false'})));
