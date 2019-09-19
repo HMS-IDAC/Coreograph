@@ -27,8 +27,8 @@ if nargin < 1
     fileName = [];
     [fileName, pathName] = uigetfile('*.ome.tif');
 else
-    [pathName,gridCoord,ext] = fileparts(fileName);
-    fileName = [gridCoord ext ];
+    [pathName,fileName,ext] = fileparts(fileName);
+    fileName = [fileName ext ];
 end
 
 
