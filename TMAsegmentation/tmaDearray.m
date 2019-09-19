@@ -98,8 +98,11 @@ if isequal(p.sample,'TMA')
     centroids=cat(1,stats.Centroid).*usf;
     estCoreDiamX = num2cell(ones(numCores).*(estCoreDiam*usf));
     estCoreDiamY = num2cell(ones(numCores).*(estCoreDiam*usf));
-    
-    tmaGrid = gridFromCentroids(centroids,estCoreDiam,usf,'showPlots',1);
+    if strcmp(p.useGrid,'true')
+        tmaGrid = gridFromCentroids(centroids,estCoreDiam,usf,'showPlots',1);
+    else
+        tmaGrid = [];
+    end
 else
     preFilt = imgaussfilt3(imagesub,2);
     mask = preFilt> thresholdMinimumError(preFilt,'model','poisson');
@@ -146,8 +149,8 @@ if isequal(p.outputFiles,'true')
     
    parfor iCore = 1:numCores
         hold on
-        [row,col] = find(tmaGrid == iCore);
-        if strcmp(p.useGrid,'true')
+        if ~isempty(tmaGrid)
+            [row,col] = find(tmaGrid == iCore);
             gridCoord = [Alphabet(row) num2str(col)];
         else 
             gridCoord = int2str(iCore);
@@ -204,8 +207,9 @@ if isequal(p.outputFiles,'true')
     
     %% build mask outlines
     for iCore= 1:numCores
-        [row,col] = find(tmaGrid == iCore);
-        if  strcmp(p.useGrid,'true')
+        
+        if  ~isempty(tmaGrid)
+            [row,col] = find(tmaGrid == iCore);
             gridCoord = [Alphabet(row) num2str(col)];
         else 
             gridCoord = int2str(iCore);
@@ -223,8 +227,9 @@ if isequal(p.outputFiles,'true')
     imshow(imagesub,[])
     for iCore = 1:numCores
         hold on
-        [row,col] = find(tmaGrid == iCore);
-        if  strcmp(p.useGrid,'true')
+        
+        if  ~isempty(tmaGrid)
+            [row,col] = find(tmaGrid == iCore);
             gridCoord = [Alphabet(row) num2str(col)];
         else 
             gridCoord = int2str(iCore);
