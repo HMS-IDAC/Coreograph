@@ -1,4 +1,4 @@
-function [finalGrid] = gridFromCentroids(centroids, estCoreDiam, downsamplingFactor, varargin)
+function [finalGrid] = gridFromCentroids(centroids, estCoreDiam, varargin)
 
 ip=inputParser;
 ip.addRequired('centroids',@isnumeric);
@@ -6,10 +6,10 @@ ip.addOptional('showPlots',0,@isnumeric)
 ip.parse(centroids,varargin{:});
 showPlots=ip.Results.showPlots;
 
-centroids = centroids.*(1/downsamplingFactor);
+centroids = centroids.*(1/32);
 
 numCores=numel(centroids(:,1));
-% estCoreDiam = 75;
+estCoreDiam = 75;
 
 %%plots the initial centroid positions on a black background
 before = subplot(1,2,1);

@@ -19,7 +19,7 @@ ip.addParamValue('sample','TMA',@(x)(ismember(x,{'TMA','tissue'})));
 ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('modelPath','',@isstr);
 ip.addParamValue('outputPath','',@isstr);
-ip.addParamValue('outputChan',1,@(x)(all(x > 0)));  
+ip.addParamValue('outputChan',0,@(x)(isnumeric(x))); 
 ip.parse(varargin{:});          
 p = ip.Results;  
 
@@ -42,14 +42,14 @@ end
 
 %% read input data
 
-modelPath = [p.modelPath 'RFmodel.mat'];
+modelPath = [p.modelPath 'model.mat'];
 %  model = pixelClassifierTrain('Z:\IDAC\Clarence\LSP\CyCIF\TMA\trainingdata 1-32nd_1','logSigmas',[5 9 15 31],'nhoodStd',[3 7 11 25 31],'pctMaxNpixelsPerLabel',50,'adjustContrast',false);
 %#function treeBagger
 load(modelPath)
 
-if contains(fileName,'ome.tif')
-    I =bfGetReader([pathName filesep fileName]);
+I =bfGetReader([pathName filesep fileName]);
     numChan =I.getImageCount;
+if contains(fileName,'ome.tif')
     sizeX = I.getSizeX;
     sizeY = I.getSizeY;
     DAPI = imread([pathName filesep fileName],numChan+1); %obtain the 2nd largest resolution of the 1st channel (assumed to be DAPI)
@@ -58,6 +58,14 @@ else
     sizeX = size(DAPI,2);
     sizeY = size(DAPI,1);
     DAPI = imresize(DAPI,0.5);
+end
+
+if numel(p.outputChan)==1
+    if p.outputChan == 0
+        p.outputChan = [1 numChan];
+    else
+        p.outputChan(2) = p.outputChan;
+    end
 end
     
 %% resize
@@ -73,10 +81,12 @@ if isequal(p.sample,'TMA')
 
     %% get initial estimates of area and radius
     preMask = imfill(imgaussfilt3(classProbs(:,:,2),1.2)>0.85,'holes');
-    stats=regionprops(preMask);
+    stats=regionprops(preMask,'Eccentricity','Area');
+    idx = find([stats.Eccentricity] < 0.4 & [stats.Area] > prctile(cat(1,stats.Area),5));
+    stats=regionprops(ismember(bwlabel(preMask),idx));
     medArea=prctile(cat(1,stats.Area),50);
     maxArea = prctile(cat(1,stats.Area),99);
-    minArea = prctile(cat(1,stats.Area),2);
+
     estCoreRad= round(sqrt(medArea/pi)); 
     estCoreDiam = round(sqrt(maxArea/pi)*2*p.buffer);
     %% preprocessing                            
@@ -85,7 +95,7 @@ if isequal(p.sample,'TMA')
     for iLog = 1:numel(estCoreRad)
         fgFiltered(:,:,iLog) = filterLoG(classProbs(:,:,2),estCoreRad(iLog));
     end
-    maxImax = imhmax(max(fgFiltered,[],3),0.00001);
+    maxImax = imhmax(max(fgFiltered(:,:,1),[],3),0.00001);
     Imax = imregionalmax(maxImax);
 
     thr = thresholdOtsu(maxImax(Imax==1));
@@ -183,22 +193,24 @@ if isequal(p.outputFiles,'true')
         bbox{iCore} = [round(x(iCore)) round(y(iCore)) round(xLim(iCore)) round(yLim(iCore))];
         %% write cropped tiff stacks with optional subset of channels for feeding into UNet
         if isequal(p.writeTiff,'true')
-            for iChan = p.outputChan
-                coreStack{iCore} = imread([pathName filesep fileName],iChan,'PixelRegion',{[bbox{iCore}(2),bbox{iCore}(4)-1], [bbox{iCore}(1),bbox{iCore}(3)-1]});
+            for iChan = p.outputChan(1):p.outputChan(2)
+                coreStack{iCore} = cat(3,coreStack{iCore},imread([pathName filesep fileName],iChan,'PixelRegion',{[bbox{iCore}(2),bbox{iCore}(4)-1], [bbox{iCore}(1),bbox{iCore}(3)-1]}));
             end
             tiffwriteimj(coreStack{iCore},[writePath filesep gridCoord '.tif'])
         end
     
     %% segment each core and save mask files
         if isequal(p.writeMasks,'true')
+            coreSlice1 = coreStack{iCore}(:,:,1);
             initialmask{iCore} = imresize(imcrop(classProbs(:,:,2),[round(x(iCore)),round(y(iCore)), ...
-                round(xLim(iCore)-x(iCore)),round(yLim(iCore)-y(iCore))]/usf),size(coreStack{iCore}));
+                round(xLim(iCore)-x(iCore)),round(yLim(iCore)-y(iCore))]/usf),size(coreSlice1));
             if isequal(p.sample,'TMA')
-                TMAmask{iCore} = coreSegmenterFigOutput(coreStack{iCore},'initialmask',initialmask{iCore},'activeContours','false','split','true');
+                TMAmask{iCore} = coreSegmenterFigOutput(coreSlice1,'initialmask',initialmask{iCore},...
+                    'activeContours','true','split','true','preBlur',mean(estCoreRad(:))/20);
             else
                 TMAmask{iCore} = findCentralObject(initialmask{iCore});
             end
-            masksub{iCore} = imresize(imresize(TMAmask{iCore},size(coreStack{iCore}),'nearest'),dsFactor/2,'nearest');
+            masksub{iCore} = imresize(imresize(TMAmask{iCore},size(coreSlice1),'nearest'),dsFactor/2,'nearest');
             tiffwriteimj(uint8(TMAmask{iCore}),[maskPath filesep gridCoord '_mask.tif']);
             disp (['Segmented core ' gridCoord])
 

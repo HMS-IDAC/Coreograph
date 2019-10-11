@@ -4,13 +4,14 @@ ip = inputParser;
 ip.addParamValue('activeContours','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('split','false',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('initialmask',[],@(x)(numel(x)>0));
+ip.addParamValue('preBlur',[],@(x)(isnumeric(x) & numel(x)>0));
 ip.parse(varargin{:});          
 p = ip.Results;  
 
 nucGF=stdfilt(imresize(DAPI,[250 250]),ones(3,3));
 buffer = round(0.2*size(nucGF,1));
 
-nuclearMask = imgaussfilt3(nucGF,1)>thresholdOtsu(nucGF);
+nuclearMask = imgaussfilt(nucGF,p.preBlur)>thresholdOtsu(nucGF);
 stats=regionprops(nuclearMask,'Area','Solidity','Eccentricity');
 [M,I]=max(cat(1,stats.Area));
 
@@ -27,7 +28,7 @@ end
 
 %% watershed segmentation
 if isequal(p.split,'true') && ((sum(sum(nuclearMask))/size(nucGF,1)/size(nucGF,2)>0.4) || stats(I).Eccentricity>0.8) %assume the object is the largest one
-    nMaskDist =imgaussfilt3(-bwdist(~nuclearMask),2);
+    nMaskDist =imgaussfilt3(-bwdist(~nuclearMask),2*p.preBlur);
     cytograd= imimposemin(nMaskDist,imerode(~nuclearMask,strel('disk',3))| imregionalmin(nMaskDist));
     TMAmask=watershed(cytograd);
     TMAmask = nuclearMask.*(TMAmask>0);

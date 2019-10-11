@@ -10,7 +10,7 @@ ip.addParamValue('sample','TMA',@(x)(ismember(x,{'TMA','tissue'})));
 ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('modelPath','',@isstr);
 ip.addParamValue('outputPath','',@isstr);
-ip.addParamValue('outputChan',1,@(x)(all(x > 0)));  
+ip.addParamValue('outputChan',0,@(x)(isnumeric(x))); 
 ip.parse(varargin{:});          
 p = ip.Results;  
 
@@ -38,9 +38,9 @@ modelPath = [p.modelPath 'RFmodel.mat'];
 %#function treeBagger
 load(modelPath)
 
-if contains(fileName,'ome.tif')
-    I =bfGetReader([pathName filesep fileName]);
+I =bfGetReader([pathName filesep fileName]);
     numChan =I.getImageCount;
+if contains(fileName,'ome.tif')
     sizeX = I.getSizeX;
     sizeY = I.getSizeY;
     DAPI = imread([pathName filesep fileName],numChan+1); %obtain the 2nd largest resolution of the 1st channel (assumed to be DAPI)
@@ -50,7 +50,14 @@ else
     sizeY = size(DAPI,1);
     DAPI = imresize(DAPI,0.5);
 end
-    
+
+if numel(p.outputChan)==1
+    if p.outputChan == 0
+        p.outputChan = [1 numChan];
+    else
+        p.outputChan = [p.outputChan(1) p.outputChan(2)];
+    end
+end
 %% resize
 dsFactor = 1/(2^p.downsampleFactor);%take the 2nd pyramid (for speed) and scale it down by 1/16 or 2^4. Effectively 1/32.
 imagesub = imresize(DAPI,dsFactor);
@@ -93,7 +100,7 @@ if isequal(p.sample,'TMA')
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%         David Added to get Grid       %%%%%%%%%%%%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    tmaGrid = gridFromCentroids(centroids,estCoreDiam,'showPlots',1);
+    tmaGrid = gridFromCentroidsDAVID(centroids,estCoreDiam,usf,'showPlots',1);
 else
     preFilt = imgaussfilt3(imagesub,2);
     mask = preFilt> thresholdMinimumError(preFilt,'model','poisson');
@@ -112,7 +119,7 @@ end
 %% write tiff stacks
 if  p.Docker==0
     filePrefix = fileName(1:strfind(fileName,'.')-1);
-    writePath = ['.' p.outputPath filesep filePrefix filesep 'dearray'];
+    writePath = [p.outputPath filesep filePrefix filesep 'dearrayTest'];
     mkdir(writePath)
     maskPath = [writePath filesep 'masks'];
     mkdir(maskPath)
@@ -174,7 +181,7 @@ if isequal(p.outputFiles,'true')
         bbox{iCore} = [round(x(iCore)) round(y(iCore)) round(xLim(iCore)) round(yLim(iCore))];
         %% write cropped tiff stacks with optional subset of channels for feeding into UNet
         if isequal(p.writeTiff,'true')
-            for iChan = p.outputChan
+            for iChan = p.outputChan(1):p.outputChan(2)
                 coreStack{iCore} = imread([pathName filesep fileName],iChan,'PixelRegion',{[bbox{iCore}(2),bbox{iCore}(4)-1], [bbox{iCore}(1),bbox{iCore}(3)-1]});
             end
             tiffwriteimj(coreStack{iCore},[writePath filesep name '.tif'])
@@ -185,7 +192,7 @@ if isequal(p.outputFiles,'true')
             initialmask{iCore} = imresize(imcrop(classProbs(:,:,2),[round(x(iCore)),round(y(iCore)), ...
                 round(xLim(iCore)-x(iCore)),round(yLim(iCore)-y(iCore))]/usf),size(coreStack{iCore}));
             if isequal(p.sample,'TMA')
-                TMAmask{iCore} = coreSegmenterFigOutput(coreStack{iCore},'initialmask',initialmask{iCore},'activeContours','false','split','true');
+                TMAmask{iCore} = coreSegmenterFigOutput(coreStack{iCore},'initialmask',initialmask{iCore},'activeContours','false','split','true','preBlur',mean(estCoreRad(:))/20);
             else
                 TMAmask{iCore} = findCentralObject(initialmask{iCore});
             end
