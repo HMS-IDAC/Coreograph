@@ -200,6 +200,18 @@ while size(grids,2) > 1
         above = 0;
     end
     
+    secRow = size(secondary,1);
+    secCol = size(secondary,2);
+    while (secondary(row,column) == 0)
+        if (row == 1 + (above)*(secRow-1))
+            row = above*secRow+~above + ((2*~above)-1)*(toLeft*(secCol+1)+(2*~toLeft-1)*column);
+            column = secCol*(toLeft) + ~toLeft;
+        else
+            row = row - (2*~above) + 1;
+            column = column + (2*~toLeft) - 1;
+        end
+    end
+    
     toAlign = allCores(:,secondary(row,column)); %Core used to align
     
     %Extends vertical line out from core to the edges of image to make the
@@ -267,18 +279,26 @@ while size(grids,2) > 1
         main = [zeros(abs(index(1))+1,size(main,2)); main];
         index(1) = 1;
     elseif (index(1)+size(secondary,1)-1 > size(main,1))
-        main = [main; zeros(index(1)+size(secondary,1) - size(main,1),size(main,2))];
+        main = [main; zeros(index(1)+size(secondary,1)-1 - size(main,1),size(main,2))];
     end
     if (index(2) <= 0)
         main = [zeros(size(main,1),abs(index(2))+1) main];
         index(2) = 1;
     elseif (index(2)+size(secondary,2) > size(main,2))
-        main = [main zeros(size(main,1),index(2)+size(secondary,2) - size(main,2))];
+        main = [main zeros(size(main,1),index(2)+size(secondary,2)-1 - size(main,2))];
     end
     
     
     %Pastes in the grid and removes secondary grid from list of grids
-    main(index(1):index(1)+(size(secondary,1)-1),index(2):index(2)+(size(secondary,2)-1)) = secondary;
+     for i = 1:numel(secondary)
+         if (secondary(i) ~= 0)
+             [row,col] = ind2sub(size(secondary),i);
+             main(index(1)+row-1,index(2)+col-1) = secondary(i);
+         end
+     end
+    
+    
+    %main(index(1):index(1)+(size(secondary,1)-1),index(2):index(2)+(size(secondary,2)-1)) = secondary;
     grids{mainIndex}=main;
     grids(:,secondaryIndex)=[]; 
 end
@@ -355,7 +375,7 @@ while (~isempty(stack))
     %Calculates the normalized vector from previous to next core
     n1 = (next(1:2) - prev(1:2)) / norm(next(1:2) - prev(1:2));
     if (next(3) == 80)
-        disp("helo")
+        %disp("helo") Used for debugging certain cores
     end
     
     %Checks whether it is within range of a 90 degree position
