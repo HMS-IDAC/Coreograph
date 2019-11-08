@@ -7,7 +7,7 @@ ip.addParamValue('writeTiff','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('writeMasks','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('outputFiles','true',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('outputCenters','false',@(x)(ismember(x,{'true','false'})));
-ip.addParamValue('useGrid','true',@(x)(ismember(x,{'true','false'})));
+ip.addParamValue('useGrid','false',@(x)(ismember(x,{'true','false'})));
 ip.addParamValue('sample','TMA',@(x)(ismember(x,{'TMA','tissue'})));
 ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('DockerParams',0,@isstruct);
