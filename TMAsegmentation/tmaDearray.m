@@ -42,7 +42,7 @@ end
 
 %% read input data
 
-modelPath = [p.modelPath 'model.mat'];
+modelPath = [p.modelPath 'model1.mat'];
 %  model = pixelClassifierTrain('Z:\IDAC\Clarence\LSP\CyCIF\TMA\trainingdata 1-32nd_1','logSigmas',[5 9 15 31],'nhoodStd',[3 7 11 25 31],'pctMaxNpixelsPerLabel',50,'adjustContrast',false);
 %#function treeBagger
 load(modelPath)
