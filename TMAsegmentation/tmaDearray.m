@@ -131,7 +131,7 @@ end
 %% write tiff stacks
 if  p.Docker==0
     filePrefix = fileName(1:strfind(fileName,'.')-1);
-    writePath = [p.outputPath filesep filePrefix filesep 'dearray'];
+    writePath = p.outputPath;
     mkdir(writePath)
     maskPath = [writePath filesep 'masks'];
     mkdir(maskPath)
