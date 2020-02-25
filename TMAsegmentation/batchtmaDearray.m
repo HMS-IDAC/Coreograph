@@ -45,7 +45,7 @@ disp(['Found ' num2str(numel(finalFolderList)) ' folders(s)' ])
 for iFolder = 1:numel(finalFolderList)
         pathName = finalFolderList(iFolder);
         finalFileList = [];
-        fileListing = dir([parentFolder filesep char(pathName) filesep 'registration' filesep '*.ome.tif']);
+        fileListing = dir([parentFolder filesep char(pathName) filesep '*.ome.tif']);
         for iFile = 1:numel(fileListing)
             if ~isequal(fileListing(iFile).name,'.') && ~isequal(fileListing(iFile).name,'..')
                 finalFileList{end+1} = fileListing(iFile).name;
@@ -59,9 +59,9 @@ for iFolder = 1:numel(finalFolderList)
             for iFile = 1:numel(finalFileList)
                 disp(['Processing filename ' finalFileList{iFile} ' - file ' num2str(iFile) ' of ' num2str(numel(finalFileList))])
                
-                    tmaDearray([parentFolder filesep char(pathName) filesep 'registration' filesep finalFileList{iFile}],'buffer',p.buffer,...
+                    tmaDearray([parentFolder filesep char(pathName) filesep finalFileList{iFile}],'buffer',p.buffer,...
                         'writeTiff',p.writeTiff,'writeMasks',p.writeMasks,'outputFiles',p.outputFiles,'modelPath', modelPath,...
-                        'outputPath',[outputPath filesep char(pathName) filesep 'dearray'],'outputChan',p.outputChan,'useGrid',p.useGrid,'Docker',p.Docker,'sample',p.sample,'downSampleFactor',p.downSampleFactor);
+                        'outputPath',[outputPath filesep 'dearray'],'outputChan',p.outputChan,'useGrid',p.useGrid,'Docker',p.Docker,'sample',p.sample,'downSampleFactor',p.downSampleFactor);
                                
             end
         end

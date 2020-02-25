@@ -82,10 +82,15 @@ if isequal(p.sample,'TMA')
     %% get initial estimates of area and radius
     preMask = imfill(imgaussfilt3(classProbs(:,:,2),1.2)>0.85,'holes');
     stats=regionprops(preMask,'Eccentricity','Area');
-    idx = find([stats.Eccentricity] < 0.4 & [stats.Area] > prctile(cat(1,stats.Area),5));
-    stats=regionprops(ismember(bwlabel(preMask),idx));
-    medArea=prctile(cat(1,stats.Area),50);
-    maxArea = prctile(cat(1,stats.Area),99);
+    if numel(stats)<3
+        medArea=prctile(cat(1,stats.Area),50);
+        maxArea = prctile(cat(1,stats.Area),99);
+    else
+        idx = find([stats.Eccentricity] < 0.4 & [stats.Area] > prctile(cat(1,stats.Area),5));
+        stats=regionprops(ismember(bwlabel(preMask),idx));
+        medArea=prctile(cat(1,stats.Area),50);
+        maxArea = prctile(cat(1,stats.Area),99);
+    end
 
     estCoreRad= round(sqrt(medArea/pi)); 
     estCoreDiam = round(sqrt(maxArea/pi)*2*p.buffer);
