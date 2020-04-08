@@ -12,6 +12,7 @@ ip.addParamValue('sample','TMA',@(x)(ismember(x,{'TMA','tissue'})));
 ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('DockerParams',0,@isstruct);
 ip.addParamValue('outputChan',0,@(x)(isnumeric(x))); 
+ip.addParamValue('cluster',false,@islogical);
 ip.parse(varargin{:});          
 p = ip.Results;  
 
@@ -61,7 +62,8 @@ for iFolder = 1:numel(finalFolderList)
                
                     tmaDearray([parentFolder filesep char(pathName) filesep finalFileList{iFile}],'buffer',p.buffer,...
                         'writeTiff',p.writeTiff,'writeMasks',p.writeMasks,'outputFiles',p.outputFiles,'modelPath', modelPath,...
-                        'outputPath',[outputPath filesep 'dearray'],'outputChan',p.outputChan,'useGrid',p.useGrid,'Docker',p.Docker,'sample',p.sample,'downSampleFactor',p.downSampleFactor);
+                        'outputPath',[outputPath filesep 'dearray'],'outputChan',p.outputChan,'useGrid',p.useGrid,...
+                        'cluster',p.cluster,'Docker',p.Docker,'sample',p.sample,'downSampleFactor',p.downSampleFactor);
                                
             end
         end

@@ -20,6 +20,7 @@ ip.addParamValue('Docker',false,@islogical);
 ip.addParamValue('modelPath','',@isstr);
 ip.addParamValue('outputPath','',@isstr);
 ip.addParamValue('outputChan',0,@(x)(isnumeric(x))); 
+ip.addParamValue('cluster',false,@islogical);
 ip.parse(varargin{:});          
 p = ip.Results;  
 
@@ -132,7 +133,12 @@ else
     centroids=cat(1,stats.Centroid).*usf;
     classProbs=repmat(mask,[1 1 3]);
 end
-    
+
+
+if numCores==0 && p.cluster
+    disp('No cores detected. Try adjusting the downsample factor')
+    quit(255)
+end
 %% write tiff stacks
 if  p.Docker==0
     filePrefix = fileName(1:strfind(fileName,'.')-1);
@@ -220,9 +226,10 @@ if isequal(p.outputFiles,'true')
             disp (['Segmented core ' gridCoord])
 
         end
-    end
-    
+   end
+
     %% build mask outlines
+    maskCount = 0;
     for iCore= 1:numCores
         
         if  ~isempty(tmaGrid)
@@ -231,7 +238,9 @@ if isequal(p.outputFiles,'true')
         else 
             gridCoord = int2str(iCore);
         end
-        
+        if sum(sum(masksub{iCore}))>0
+            maskCount=maskCount + 1;
+        end
         singleMaskTMA(round(y(iCore)*dsFactor/2)+1:round(y(iCore)*dsFactor/2)+size(masksub{iCore},1),...
             round(x(iCore)*dsFactor/2)+1:round(x(iCore)*dsFactor/2)+size(masksub{iCore},2))=edge(masksub{iCore}>0);
         maskTMA = maskTMA + imresize(singleMaskTMA,size(maskTMA),'nearest');
@@ -239,6 +248,11 @@ if isequal(p.outputFiles,'true')
         save([writePath filesep gridCoord '_cropCoords.mat'],'rect')
     end
     imagesub= imfuse(maskTMA>0,sqrt(double(imagesub)./max(double(imagesub(:)))));
+    
+    if (maskCount/numCores <0.5) && p.cluster
+        disp('Less than 50% of cores were segmented. Exiting.')
+        quit(255)
+    end
     
     %% add centroid positions and labels to a summary image
     imshow(imagesub,[])
