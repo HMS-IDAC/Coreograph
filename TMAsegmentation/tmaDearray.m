@@ -207,7 +207,7 @@ if isequal(p.outputFiles,'true')
             for iChan = p.outputChan(1):p.outputChan(2)
                 coreStack{iCore} = cat(3,coreStack{iCore},imread([pathName filesep fileName],iChan,'PixelRegion',{[bbox{iCore}(2),bbox{iCore}(4)-1], [bbox{iCore}(1),bbox{iCore}(3)-1]}));
             end
-            tiffwriteimj(coreStack{iCore},[writePath filesep gridCoord '.tif'])
+            tiffwriteimj(coreStack{iCore},[writePath filesep gridCoord '.tif'],'dimensionOrder', 'YXCZT')
         end
     
     %% segment each core and save mask files
