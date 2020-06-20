@@ -221,6 +221,9 @@ if isequal(p.outputFiles,'true')
             else
                 TMAmask{iCore} = findCentralObject(initialmask{iCore});
             end
+            if sum(sum(TMAmask{iCore} )) ==0
+                TMAmask{iCore} = ones(size(TMAmask{iCore}));
+            end
             masksub{iCore} = imresize(imresize(TMAmask{iCore},size(coreSlice1),'nearest'),dsFactor/2,'nearest');
             tiffwriteimj(uint8(TMAmask{iCore}),[maskPath filesep gridCoord '_mask.tif']);
             disp (['Segmented core ' gridCoord])
